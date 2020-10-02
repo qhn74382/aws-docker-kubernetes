@@ -57,18 +57,22 @@ Also known as "Control Plane" of the cluster / Can be setup on any machine / Aft
     - Storage for the k8s cluster (Key Value pair format)
 
 ### Node Components
-Run on each node / maintain the running pods / provide k8s runtime environment
+Individual servers, machines, or virtual machines/ Run on each node / Nodes have the services necessary to run application containers and be managed from the master systems / maintain the running pods / provide k8s runtime environment
   - kubelet
-    - Agent running on each node
-    - Communicates with the master via API
-    - Ensures containers are running in the pods
+    - Agent running on each node and ensures that the containers are running as intended
+    - Communicates with the Master via API
+    - Ensure decoupling - executed isolated application containers
   - container runtime
-      - Resposible for downloading and running the containers
+      - Resposible for downloading container images and running the containers
   - kube-proxy
+    - Groups pods under a common access policy
+    - Creates a virtual IP to allow proxied access to the pods in a service
     - Maintains network rules on the host
     - Run on each node responsible for watching API server for any changes on services to maintain the entire network configuration up to date
     - Ensure port can talk to another port / node talk to another node
+    - Each node runs a kube-proxy process which programs iptables rules to trap access to service IPs and redirect the to the correct backends
 
+<b>Important Note</b>: If there is no ReplicationController and a node dies or become unavailable, the pods on taht node gets terminated
 
 ## Object Management Models - Imperative vs Declarative
 ### Imperative Model
@@ -133,3 +137,62 @@ Explicitly define each state that lead to the final result
     - Support for operating on directories and automatically detecting operation types (create, patch, delete) per-object
   - Disadvantages
     - Harder to debug and undertand results when they are unexpected
+
+## Overview of Docker and Containers
+### Docker
+  - Open-source project for automating the deployment of applications as portable, self-sufficient containers that can run on the cloud or on-premise
+  - A host environment which allows the containerized applications to run
+
+### Docker Host
+  - Machine that has Docker components installed
+  - On the development computer, the developer runs a Docker host where Docker images are deployed, inlcuding the app and its dependencies
+
+### Container Image
+  - A package with all the dependencies and information needed to create a container (e.g. OS Files and objectts, Manifest and the application files)
+  - Includes all the dependencies (such as framework) plus deployment and execution configuration to be used by a container runtime
+  - An image derives from mutliple base images that are layers stacked on top of each other to form the container's filesystem
+  - The information about the layers is stored in a "manifest" file
+  - An image is immutable once it has been created, however you can create another layer on top of the image
+
+### Container
+  - A running instance of a Docker image
+  - A container represents the execution of a single application, process, or service. It consists of the contents of a Docker image, an execution environment, and a standard set of instructions
+  - Multiple containers can run from a single image
+  - Command to run a container from an image: docker run 'image-name'
+  - When scaling a service, you create multiple instances of a container from the same image
+  - A batch job can create mutliple containers from the same image, passing different parameters to each instance
+  - The images are "build-time" constructs and containers are the "run-time" constructs
+
+## Container States
+### Created
+  - A new container has been created from the image via command - docker create 'image name'
+
+### Running
+  - All processes within the container are running
+
+### Paused
+  - All processes with the container are suspended
+
+### Restarting
+  - The container is getting restarted via command - docker restart 'container name'
+
+### Removed
+  - Container is getting removed via command docker rm 'container name'
+
+### Exited
+  - The main process running in the container has exited
+
+### Dead
+  - Container is in a defunct state (e.g. issues with accessing their underlying storage)
+
+## Container Registry
+  - A service that provides access to repositories
+  - All images are stored in registry
+  - The default registry for most public images is Docker Hub
+  - Companies often have private registries to store and manage imaes they've created
+
+## Dockerfile
+  - A text file that contains all commands, in order, needed to build a given image
+  - Docker builds image automatically by reading the instructions from a Dockerfile
+  - A Dockerfile adheres to a specific format and set of instructions
+  - A Docker image consists of read-only layers each of which represents a Dockerfile instructions
