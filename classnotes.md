@@ -196,3 +196,31 @@ Explicitly define each state that lead to the final result
   - Docker builds image automatically by reading the instructions from a Dockerfile
   - A Dockerfile adheres to a specific format and set of instructions
   - A Docker image consists of read-only layers each of which represents a Dockerfile instructions
+
+## Deploy A Static Website on Docker Container
+### Project Scope
+  - Setup a Docker Host
+  - Create a Website Directory
+  - Create the Website Homepage
+  - Create a Dockerfile
+  - Build the Image
+  - Verify the Image
+  - Run a Container
+  - Test Website in a Web Browser
+  - Push the image to Docker Hub
+
+```bash
+#Setup a Master with an t2.medium Ubuntu
+#Setup up 2 worker nodes with t2.medium Ubuntu
+
+#Login in
+ssh -i pem key ubuntu@IP address
+#go to root user
+sudo su
+apt-get update
+apt-get install docker.io -y
+docker --version
+
+
+
+```
