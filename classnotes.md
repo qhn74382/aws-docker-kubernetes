@@ -213,14 +213,82 @@ Explicitly define each state that lead to the final result
 #Setup a Master with an t2.medium Ubuntu
 #Setup up 2 worker nodes with t2.medium Ubuntu
 
-#Login in
+#Login into the master and worker
 ssh -i pem key ubuntu@IP address
-#go to root user
+#On Master, go to root user
 sudo su
 apt-get update
 apt-get install docker.io -y
-docker --version
 
+systemctl enable docker.service
 
+#On Worker1, go to root user
+sudo su
+apt-get update
+apt-get install docker.io -y
+systemctl enable docker.service
 
+#Pre-requisite for kube environment on master and worker
+apt-get update && apt-get install -y apt-transport-https
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
+deb http://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+
+#install kube environment
+apt-get update
+apt-get install -y kubeadm kubelet kubectl
+
+#Initialize kubeadm for Master
+kubeadm init
+
+#If you want the docker service to start on boot, run the following command:
+sudo systemctl enable docker
+#To start using your cluster, run the following command
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u) $HOME/.kube/config
+
+#check the master node is ready
+kubectl get node
+#check to see what is the reason, no pod network
+kubectl get pods --all-namespaces
 ```
+
+## Overview of Pods
+### Important Points
+  - A Pod is the basic building block of Kubernetes - the smallest and simplest atomic unit in the Kubernetes object model that you create or deploy
+  - Pods are atomic
+  - A pod can run on a single instance at a time
+  - Pods enable scaling of the application
+  - Pods are disposable
+  - Pods are managed by controller
+  - Pods can be deployed individually as well as declaratively
+  - 1 Pod - 1 IP Address
+
+### Pods - Networking
+  - Each Pod is assigned a unique IP address
+  - Every container in a Pod shares the network namespace, including the IP address and network ports
+  - Containers inside a Pod can communicate with one another using localhost
+  - When containers in a Pod communicate with entities outside the Pod, they must coordinate how they use the shared network resources (such as ports)
+
+### Pods - Storage
+  - Pods provides storage for data sharing among containers
+  - A Pod can specify a set of shared storage volumes
+  - All containers in the Pod can access the shared volumes, allowing those containers to share data
+  - Volumes also allow persistent data in a Pod to survive in case one of the containers within needs to be restarted
+
+### Pods - Containers
+  - Pods consist of either one or more containers (e.g. Docker containers) that are tightly coupled and that share resources
+  - The containers in a Pod are automatically co-located and co-scheduled on the same physical or virtual machine in the cluster
+  - The containers can share resources and dependencies, communicate with one another, and coordinate when and how they are terminated
+  - Pods in the unit of scaling - not containers!
+
+### Pod - Lifecycle
+  - Pending - The pod creation is waiting on one or more containers images to finish getting created
+  - Running - Pod is successfully deployed, all containers inside it are provisioned, and running on the underlying node
+  - Succeeded - All containers in the Pod have successfully deployed
+  - Failed - At least one container has failed
+  - Unknown - For some reason the stat of the Pod could not be obtained, typically due to an error in communicating with the host of the Pod
+
+## Container Probes
