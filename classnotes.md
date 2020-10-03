@@ -197,62 +197,91 @@ Explicitly define each state that lead to the final result
   - A Dockerfile adheres to a specific format and set of instructions
   - A Docker image consists of read-only layers each of which represents a Dockerfile instructions
 
-## Deploy A Static Website on Docker Container
-### Project Scope
-  - Setup a Docker Host
-  - Create a Website Directory
-  - Create the Website Homepage
-  - Create a Dockerfile
-  - Build the Image
-  - Verify the Image
-  - Run a Container
-  - Test Website in a Web Browser
-  - Push the image to Docker Hub
-
+## Deploy A Kubernetes cluster with 1 master and 2 workers
+### Pre-Requisite Steps
+  - Master Security Group
+    - SSH 22
+    - Custom TCP
+      - API 6443
+      - etcd 2379-2380
+      - scheduler 10251
+      - kubelet 10250
+      - controller 10252
+  - Worker Security Group
+    - SSH 22
+    - HTTP 80
+    - nodeport 30000-32767
+    - kubelet 10250
 ```bash
-#Setup a Master with an t2.medium Ubuntu
-#Setup up 2 worker nodes with t2.medium Ubuntu
+sudo hostnamectl set-hostname master
+sudo hostnamectl set-hostname worker1
+sudo hostnamectl set-hostname worker2
 
-#Login into the master and worker
-ssh -i pem key ubuntu@IP address
-#On Master, go to root user
-sudo su
-apt-get update
-apt-get install docker.io -y
+#install the required packages that kubernetes needs
+sudo apt-get update && sudo apt-get install -y apt-transport-https gnupg2
+#download kubernetes projects
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+#get the keys to the repository to the installer
+echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
 
-systemctl enable docker.service
-
-#On Worker1, go to root user
-sudo su
-apt-get update
-apt-get install docker.io -y
-systemctl enable docker.service
-
-#Pre-requisite for kube environment on master and worker
-apt-get update && apt-get install -y apt-transport-https
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
-deb http://apt.kubernetes.io/ kubernetes-xenial main
-EOF
-
-#install kube environment
-apt-get update
-apt-get install -y kubeadm kubelet kubectl
-
-#Initialize kubeadm for Master
-kubeadm init
-
-#If you want the docker service to start on boot, run the following command:
+sudo apt-get update
+#start and enable docker
+sudo systemctl start docker
 sudo systemctl enable docker
-#To start using your cluster, run the following command
+
+#start and enable kubelet (how pods communicate)
+sudo systemctl start kubelet
+sudo systemctl enable kubelet
+
+#add ubuntu to a docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+#allow the linux kernel to use network bridge correctly
+cat << EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+#apply the configs to the system
+sudo sysctl --system
+```
+### ------
+```bash
+#On the Master, Pull the kubeadm config image
+sudo kubeadm config images pull
+
+#Get Master and Worker Private IP address
+Master  172.31.19.58
+Worker1 172.31.24.61
+Worker2 172.31.23.46
+
+#On the Master, advertise the Master ip address
+sudo kubeadm init --apiserver-advertise-address=172.31.19.58 --pod-network-cidr=172.16.0.0/16
+#add a flag in case of error because we run on a smaller size instance
+#sudo kubeadm init --apiserver-advertise-address=172.31.19.58 --pod-network-cidr=172.16.0.0/16 --ignore-preflight-errors=NumCPU
+#to reset the kubeadm
+#sudo kubeadm reset
+
+#kube config is the key to the kingdom, if you don't have this file, you CAN'T interact with this cluster at all
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u) $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
-#check the master node is ready
-kubectl get node
-#check to see what is the reason, no pod network
-kubectl get pods --all-namespaces
+#Create a manifest, the pod manager
+mkdir manifests
+cd manifests
+#nano canal.yaml
+  #copy the yaml file from this link
+  # https://raw.githubusercontent.com/projectcalico/canal/master/k8s-install/1.7/canal.yaml
+
+#Everything in Kubernetes, you usually apply for the imply
+#Apply deployment to cluster
+sudo kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+
+#create a token for worker to join the cluster
+kubeadm token create --print-join-token
+
+kubeadm join 172.31.19.58:6443 --token 16lgu7.qwtxuqput0a67ffdefcb7e238a8447a32d790b2c9afffb3e04182c090aab2b9
 ```
 
 ## Overview of Pods
