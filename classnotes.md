@@ -212,12 +212,25 @@ Explicitly define each state that lead to the final result
     - HTTP 80
     - nodeport 30000-32767
     - kubelet 10250
+
+## Setup the Master Node first
 ```bash
+#change hostname for master and workers
 sudo hostnamectl set-hostname master
 sudo hostnamectl set-hostname worker1
 sudo hostnamectl set-hostname worker2
 
-#install the required packages that kubernetes needs
+#add ubuntu to a docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+sudo apt-get update
+sudo apt-get install docker.io -y
+#start and enable docker
+sudo systemctl start docker
+sudo systemctl enable docker
+
+#install the kube environment that kubernetes needs for the master and initialize it to become the master
 sudo apt-get update && sudo apt-get install -y apt-transport-https gnupg2
 #download kubernetes projects
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
@@ -225,17 +238,6 @@ curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add
 echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
 
 sudo apt-get update
-#start and enable docker
-sudo systemctl start docker
-sudo systemctl enable docker
-
-#start and enable kubelet (how pods communicate)
-sudo systemctl start kubelet
-sudo systemctl enable kubelet
-
-#add ubuntu to a docker group
-sudo usermod -aG docker $USER
-newgrp docker
 
 #allow the linux kernel to use network bridge correctly
 cat << EOF | sudo tee /etc/sysctl.d/k8s.conf
@@ -244,19 +246,26 @@ net.bridge.bridge-nf-call-iptables = 1
 EOF
 #apply the configs to the system
 sudo sysctl --system
+
+#install kube packages
+sudo apt-get install -y kubeadm kubectl kubelet
+#start and enable kubelet (how pods communicate)
+sudo systemctl start kubelet
+sudo systemctl enable kubelet
 ```
 ### ------
 ```bash
 #On the Master, Pull the kubeadm config image
 sudo kubeadm config images pull
 
+
 #Get Master and Worker Private IP address
-Master  172.31.19.58
-Worker1 172.31.24.61
-Worker2 172.31.23.46
+Master  172.31.25.83
+Worker1 18.234.238.125
+Worker2 3.87.240.49
 
 #On the Master, advertise the Master ip address
-sudo kubeadm init --apiserver-advertise-address=172.31.19.58 --pod-network-cidr=172.16.0.0/16
+sudo kubeadm init  # --apiserver-advertise-address=172.31.25.83 --pod-network-cidr=172.16.0.0/16
 #add a flag in case of error because we run on a smaller size instance
 #sudo kubeadm init --apiserver-advertise-address=172.31.19.58 --pod-network-cidr=172.16.0.0/16 --ignore-preflight-errors=NumCPU
 #to reset the kubeadm
@@ -278,11 +287,70 @@ cd manifests
 #Apply deployment to cluster
 sudo kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
 
-#create a token for worker to join the cluster
-kubeadm token create --print-join-token
+#check to see if master is ready
+kubectl get nodes
 
-kubeadm join 172.31.19.58:6443 --token 16lgu7.qwtxuqput0a67ffdefcb7e238a8447a32d790b2c9afffb3e04182c090aab2b9
+#Then you can join any number of worker nodes by running the following on each as root:
+
+kubeadm join 172.31.25.83:6443 --token qci143.4vmn48rm4lo9hor9 \
+    --discovery-token-ca-cert-hash sha256:4257ba2e81d8f554d9ffbb491eb211eeb1a5eb6ae9d4c5020fa8179490c25bb3
 ```
+## Set Up 4 Worker Nodes and add them to the cluster
+```bash
+#ssh into the workers
+
+#update all packages
+sudo apt-get update
+
+#install docker
+sudo apt-get install docker.io -y
+
+#enable docker service
+sudo systemctl start docker
+sudo systemctl enable docker
+
+#change hostname for master and workers
+sudo hostnamectl set-hostname master
+sudo hostnamectl set-hostname worker1
+sudo hostnamectl set-hostname worker2
+
+#add ubuntu to a docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+#install the kube environment for the workers, we need the environment in order to add the workers to the cluster
+sudo apt-get update && sudo apt-get install -y apt-transport-https gnupg2
+#download kubernetes projects
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+#get the keys to the repository to the installer
+echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
+
+sudo apt-get update
+
+#install kube packages
+sudo apt-get install -y kubeadm kubectl kubelet
+#start and enable kubelet (how pods communicate)
+sudo systemctl start kubelet
+sudo systemctl enable kubelet
+
+#On the Master, create a token for the worker to join, if the token expired, generate a new one
+sudo kubeadm token create --print-join-command
+
+#copy the whole command and paste to the worker1 and worker2
+kubeadm join 172.31.25.83:6443 --token 4k15k0.7ih0iynxu9a0j204     --discovery-token-ca-cert-hash sha256:4257ba2e81d8f554d9ffbb491eb211eeb1a5eb6ae9d4c5020fa8179490c25bb3
+
+#On the master, check the status of the workers
+kubectl get nodes
+
+
+```
+
+
+
+
+
+
+
 
 ## Overview of Pods
 ### Important Points
