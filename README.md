@@ -197,6 +197,17 @@ Explicitly define each state that lead to the final result
   - A Dockerfile adheres to a specific format and set of instructions
   - A Docker image consists of read-only layers each of which represents a Dockerfile instructions
 
+
+Note: Change the alias kubectl to k
+```bash
+source <(kubectl completion bash) # setup autocomplete in bash into the current shell, bash-completion package should be installed first.
+echo "source <(kubectl completion bash)" >> ~/.bashrc # add autocom
+alias k=kubectl
+complete -F __start_kubectl k
+```
+https://kubernetes.io/docs/concepts/cluster-administration/addons/
+https://github.com/talha-01/jenkins-kubernetes-deploy/tree/master/kubernetes
+
 ## Deploy A Kubernetes cluster with 1 master and 2 workers
 ### Pre-Requisite Steps
   - Master Security Group
